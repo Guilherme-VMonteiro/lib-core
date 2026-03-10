@@ -1,0 +1,22 @@
+# Build
+target/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node (semantic-release)
+node_modules/
+package-lock.json
+
+# Maven
+*.jar
+*.war
+*.ear
+dependency-reduced-pom.xml
