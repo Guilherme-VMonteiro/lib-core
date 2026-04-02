@@ -1,12 +1,12 @@
 package br.com.lucra.core.filter.model;
 
 public enum FilterOperation {
-	EQUAL,
-	NOT_EQUAL,
-	GREATER_THAN,
-	LESS_THAN,
-	GREATER_OR_EQUAL,
-	LESS_OR_EQUAL,
-	IN,
-	NOT_IN
+	EQUAL,            // Igual
+	NOT_EQUAL,        // Diferente
+	GREATER_THAN,     // Maior que
+	LESS_THAN,        // Menor que
+	GREATER_OR_EQUAL, // Maior ou igual
+	LESS_OR_EQUAL,    // Menor ou igual
+	CONTAINED,        // Contém
+	NOT_CONTAINED,    // Não contém
 }
