@@ -40,13 +40,40 @@ public final class SpecificationBuilder {
 	private static final Pattern DIACRITICS_PATTERN = Pattern.compile("\\p{M}+");
 	
 	public static <T> Specification<T> build(List<FilterRule<T, ?>> filters) {
-		return (root, query, criteriaBuilder) -> {
-			if (isNull(filters) || filters.isEmpty()) return criteriaBuilder.conjunction();
-			
+		return build(filters, null, null);
+	}
+	
+	public static <T> Specification<T> build(List<FilterRule<T, ?>> filters, String query, List<String> queryFields) {
+		return (root, queryJpa, criteriaBuilder) -> {
 			List<Predicate> predicates = new ArrayList<>();
-			for (FilterRule<T, ?> filter : filters) {
-				Predicate predicate = toPredicate(filter, root, criteriaBuilder);
-				if (nonNull(predicate)) predicates.add(predicate);
+			
+			// Add filter rule predicates
+			if (nonNull(filters) && !filters.isEmpty()) {
+				for (FilterRule<T, ?> filter : filters) {
+					Predicate predicate = toPredicate(filter, root, criteriaBuilder);
+					if (nonNull(predicate)) predicates.add(predicate);
+				}
+			}
+			
+			// Add query predicates
+			if (nonNull(query) && !isBlank(query) && nonNull(queryFields) && !queryFields.isEmpty()) {
+				List<Predicate> queryPredicates = new ArrayList<>();
+				for (String field : queryFields) {
+					try {
+						Path<String> path = resolvePath(root, field);
+						if (String.class.equals(path.getJavaType())) {
+							Expression<String> normalizedPath = normalizeTextExpression(path.as(String.class), criteriaBuilder);
+							String pattern = "%" + escapeLike(normalizeTextValue(query)) + "%";
+							queryPredicates.add(criteriaBuilder.like(normalizedPath, pattern, '\\'));
+						}
+					} catch (IllegalArgumentException ignored) {
+						// Skip invalid fields
+					}
+				}
+				
+				if (!queryPredicates.isEmpty()) {
+					predicates.add(criteriaBuilder.or(queryPredicates.toArray(new Predicate[0])));
+				}
 			}
 			
 			if (predicates.isEmpty()) return criteriaBuilder.conjunction();
@@ -178,14 +205,14 @@ public final class SpecificationBuilder {
 	
 	private static Predicate contained(Path<?> path, Object rawValue, CriteriaBuilder criteriaBuilder) {
 		if (isNull(rawValue)) return criteriaBuilder.disjunction();
-
+		
 		boolean isTextPath = String.class.equals(path.getJavaType());
 		if (isTextPath && rawValue instanceof String textValue) {
 			Expression<String> normalizedPath = normalizeTextExpression(path.as(String.class), criteriaBuilder);
 			String pattern = "%" + escapeLike(normalizeTextValue(textValue)) + "%";
 			return criteriaBuilder.like(normalizedPath, pattern, '\\');
 		}
-
+		
 		Expression<?> targetExpression = isTextPath ? normalizeTextExpression(path.as(String.class), criteriaBuilder) : path;
 		CriteriaBuilder.In<Object> inClause = criteriaBuilder.in(targetExpression);
 		
@@ -214,7 +241,7 @@ public final class SpecificationBuilder {
 	private static Object normalizeInValue(Object value, boolean isTextPath) {
 		return (isTextPath && value instanceof String textValue) ? normalizeTextValue(textValue) : value;
 	}
-
+	
 	private static String escapeLike(String value) {
 		return value
 				.replace("\\", "\\\\")
